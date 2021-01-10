@@ -40,7 +40,7 @@ locals {
 }
 
 locals {
-  domain = var.cloudflare_record_name == var.cloudflare_zone_name ? var.cloudflare_record_name : "${cloudflare_record_name}.${cloudflare_zone_name}"
+  domain = var.cloudflare_record_name == var.cloudflare_zone_name ? var.cloudflare_record_name : "${var.cloudflare_record_name}.${var.cloudflare_zone_name}"
 }
 
 resource "aws_s3_bucket" "source" {
