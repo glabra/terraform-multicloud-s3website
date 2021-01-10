@@ -90,6 +90,14 @@ resource "aws_s3_bucket_policy" "allow_connection_from_cloudflare" {
   policy = data.aws_iam_policy_document.allow_connection_from_cloudflare.json
 }
 
+resource "cloudflare_zone_settings_override" "settings" {
+  zone_id = var.cloudflare_zone_id
+
+  settings {
+    ssl = "flexible"
+  }
+}
+
 resource "cloudflare_record" "record" {
   zone_id = var.cloudflare_zone_id
   name = var.cloudflare_record_name
