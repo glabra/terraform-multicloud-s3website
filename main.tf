@@ -118,6 +118,10 @@ resource "aws_cloudfront_distribution" "sink" {
     viewer_protocol_policy = "redirect-to-https"
   }
 
+  restrictions {
+    restriction_type = "none"
+  }
+
   viewer_certificate {
     acm_certificate_arn = aws_acm_certificate.cert.arn
     ssl_support_method = "sni-only"
