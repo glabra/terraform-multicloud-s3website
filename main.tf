@@ -116,6 +116,14 @@ resource "aws_cloudfront_distribution" "sink" {
 
     compress = true
     viewer_protocol_policy = "redirect-to-https"
+
+    forwarded_values {
+      cookies {
+        forward = "none"
+      }
+      query_string = false
+      headers = []
+    }
   }
 
   restrictions {
