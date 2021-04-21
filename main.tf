@@ -12,50 +12,15 @@ terraform {
 }
 
 locals {
-  # CloudFlare Edge IPs
-  # Data source is https://www.cloudflare.com/ips/
-  cloudflare_ips = [
-    "173.245.48.0/20",
-    "103.21.244.0/22",
-    "103.22.200.0/22",
-    "103.31.4.0/22",
-    "141.101.64.0/18",
-    "108.162.192.0/18",
-    "190.93.240.0/20",
-    "188.114.96.0/20",
-    "197.234.240.0/22",
-    "198.41.128.0/17",
-    "162.158.0.0/15",
-    "104.16.0.0/12",
-    "172.64.0.0/13",
-    "131.0.72.0/22",
-    "2400:cb00::/32",
-    "2606:4700::/32",
-    "2803:f800::/32",
-    "2405:b500::/32",
-    "2405:8100::/32",
-    "2a06:98c0::/29",
-    "2c0f:f248::/32",
-  ]
-}
-
-locals {
   domain = var.cloudflare_record_name == var.cloudflare_zone_name ? var.cloudflare_record_name : "${var.cloudflare_record_name}.${var.cloudflare_zone_name}"
 }
 
-resource "aws_s3_bucket" "source" {
-  # Host header should match S3 bucket name.
-  # Cloudflare does not provide Host Header Override to free-ride users.
-  # Therefore, we set the S3 bucket name the same as the Host header.
-  bucket = local.domain
-  acl = "public-read"
+resource "aws_cloudfront_origin_access_identity" "sink" {
+}
 
-  website {
-    index_document = var.s3_website_index_document
-    error_document = var.s3_website_error_document
-    redirect_all_requests_to = var.s3_website_redirect_all_requests_to
-    routing_rules = var.s3_website_routing_rules
-  }
+resource "aws_s3_bucket" "source" {
+  bucket = local.domain
+  acl = "private"
 
   server_side_encryption_configuration {
     rule {
@@ -66,35 +31,104 @@ resource "aws_s3_bucket" "source" {
   }
 }
 
-# Source: https://docs.aws.amazon.com/AmazonS3/latest/user-guide/static-website-hosting.html#add-bucket-policy-public-access
-data "aws_iam_policy_document" "allow_connection_from_cloudflare" {
+data "aws_iam_policy_document" "allow_sink_fetching" {
   statement {
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.source.arn}/*"]
 
     principals {
       type = "AWS"
-      identifiers = ["*"]
-    }
-
-    condition {
-      test = "IpAddress"
-      variable = "aws:SourceIp"
-      values = local.cloudflare_ips
+      identifiers = [aws_cloudfront_origin_access_identity.sink.iam_arn]
     }
   }
 }
 
-resource "aws_s3_bucket_policy" "allow_connection_from_cloudflare" {
+resource "aws_s3_bucket_policy" "source" {
   bucket = aws_s3_bucket.source.id
-  policy = data.aws_iam_policy_document.allow_connection_from_cloudflare.json
+  policy = data.aws_iam_policy_document.allow_sink_fetching.json
+}
+
+
+resource "random_string" "origin_id" {
+  keepers = {
+    domain = aws_s3_bucket.source.bucket_regional_domain_name
+  }
+
+  length = 8
+  lower = true
+  special = false
+  upper = false
+}
+
+resource "aws_acm_certificate" "cert" {
+  domain_name = local.domain
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "cloudflare_record" "cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.cert.domain_validation_options : dvo.domain_name => {
+      name    = dvo.resource_record_name
+      record  = dvo.resource_record_value
+      type    = dvo.resource_record_type
+    }
+  }
+
+  zone_id = var.cloudflare_zone_id
+  name = each.value.name
+  type = each.value.type
+  value = each.value.record
+  proxied = false
+}
+
+resource "aws_acm_certificate_validation" "cert" {
+  certificate_arn = aws_acm_certificate.cert.arn
+}
+
+resource "aws_cloudfront_distribution" "sink" {
+  origin {
+    domain_name = aws_s3_bucket.source.bucket_regional_domain_name
+    origin_id = random_string.origin_id
+
+    s3_origin_config {
+      origin_access_identity = aws_cloudfront_origin_access_identity.sink.cloudfront_access_identity_path
+    }
+  }
+
+  enabled = true
+  default_root_object = var.cloudfront_default_root_object
+  aliases = [local.domain]
+  price_class = "PriceClass_100"
+
+  custom_error_response {
+    error_code = "404"
+    response_page_path = var.cloudfront_404_error_resource
+  }
+
+  default_cache_behavior {
+    allowed_methods = ["GET", "HEAD", "OPTIONS"]
+    cached_methods = []
+    target_origin_id = random_string.origin_id
+
+    compress = true
+    viewer_protocol_policy = "redirect-to-https"
+  }
+
+  viewer_certificate {
+    acm_certificate_arn = aws_acm_certificate.cert.arn
+    ssl_support_method = "sni-only"
+  }
 }
 
 resource "cloudflare_zone_settings_override" "settings" {
   zone_id = var.cloudflare_zone_id
 
   settings {
-    ssl = "flexible"
+    ssl = "strict"
   }
 }
 
@@ -102,6 +136,6 @@ resource "cloudflare_record" "record" {
   zone_id = var.cloudflare_zone_id
   name = var.cloudflare_record_name
   type = "CNAME"
-  value = aws_s3_bucket.source.website_endpoint
+  value = aws_cloudfront_distribution.sink.domain_name
   proxied = true
 }
