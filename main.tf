@@ -106,6 +106,7 @@ resource "aws_cloudfront_distribution" "sink" {
 
   custom_error_response {
     error_code = "404"
+    response_code = "404"
     response_page_path = var.cloudfront_404_error_resource
   }
 
