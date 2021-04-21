@@ -111,10 +111,11 @@ resource "aws_cloudfront_distribution" "sink" {
 
   default_cache_behavior {
     allowed_methods = ["GET", "HEAD", "OPTIONS"]
-    cached_methods = []
+    cached_methods = ["GET"]
     target_origin_id = random_string.origin_id.id
 
     compress = true
+    max_ttl = 0
     viewer_protocol_policy = "redirect-to-https"
 
     forwarded_values {
