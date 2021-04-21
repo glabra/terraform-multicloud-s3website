@@ -11,6 +11,11 @@ terraform {
   }
 }
 
+provider "aws" {
+  alias = "acm"
+  region = "us-east-1"
+}
+
 locals {
   domain = var.cloudflare_record_name == var.cloudflare_zone_name ? var.cloudflare_record_name : "${var.cloudflare_record_name}.${var.cloudflare_zone_name}"
 }
@@ -61,6 +66,8 @@ resource "random_string" "origin_id" {
 }
 
 resource "aws_acm_certificate" "cert" {
+  provider = aws.acm
+
   domain_name = local.domain
   validation_method = "DNS"
 
