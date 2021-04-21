@@ -111,7 +111,7 @@ resource "aws_cloudfront_distribution" "sink" {
 
   default_cache_behavior {
     allowed_methods = ["GET", "HEAD", "OPTIONS"]
-    cached_methods = ["GET"]
+    cached_methods = ["GET", "HEAD"]
     target_origin_id = random_string.origin_id.id
 
     compress = true
