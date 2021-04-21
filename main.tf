@@ -92,10 +92,6 @@ resource "cloudflare_record" "cert_validation" {
   proxied = false
 }
 
-resource "aws_acm_certificate_validation" "cert" {
-  certificate_arn = aws_acm_certificate.cert.arn
-}
-
 resource "aws_cloudfront_distribution" "sink" {
   origin {
     domain_name = aws_s3_bucket.source.bucket_regional_domain_name
