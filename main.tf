@@ -119,7 +119,9 @@ resource "aws_cloudfront_distribution" "sink" {
   }
 
   restrictions {
-    restriction_type = "none"
+    geo_restriction {
+      restriction_type = "none"
+    }
   }
 
   viewer_certificate {
