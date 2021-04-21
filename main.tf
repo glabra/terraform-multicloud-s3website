@@ -92,7 +92,7 @@ resource "aws_acm_certificate_validation" "cert" {
 resource "aws_cloudfront_distribution" "sink" {
   origin {
     domain_name = aws_s3_bucket.source.bucket_regional_domain_name
-    origin_id = random_string.origin_id
+    origin_id = random_string.origin_id.id
 
     s3_origin_config {
       origin_access_identity = aws_cloudfront_origin_access_identity.sink.cloudfront_access_identity_path
@@ -112,7 +112,7 @@ resource "aws_cloudfront_distribution" "sink" {
   default_cache_behavior {
     allowed_methods = ["GET", "HEAD", "OPTIONS"]
     cached_methods = []
-    target_origin_id = random_string.origin_id
+    target_origin_id = random_string.origin_id.id
 
     compress = true
     viewer_protocol_policy = "redirect-to-https"
