@@ -108,7 +108,7 @@ resource "aws_cloudfront_distribution" "sink" {
   price_class = "PriceClass_100"
 
   custom_error_response {
-    error_code = "404"
+    error_code = "403"
     response_code = "404"
     response_page_path = var.cloudfront_404_error_resource
   }
