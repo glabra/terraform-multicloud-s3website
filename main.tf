@@ -120,7 +120,7 @@ resource "aws_cloudfront_distribution" "sink" {
 
     compress = true
     max_ttl = 0
-    viewer_protocol_policy = "redirect-to-https"
+    viewer_protocol_policy = "allow-all"
 
     forwarded_values {
       cookies {
